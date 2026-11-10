@@ -8,9 +8,8 @@ format criteria grade exactly that. Your course repo link is the whole submissio
 files and no evidence uploads are part of Assignment 5.
 
 **Contribution Number:** [1]
-**Student:** [Student name]
-**GitHub Username:** [your GitHub username, exactly as it appears on your profile - no @, no
-profile URL. Your comments upstream are identified by this name.]
+**Student:** Jaed Pizarro
+**GitHub Username:** Jaed256
 **Issue:** [GitHub issue link]
 **Pull Request:** [GitHub PR link, once opened]
 
@@ -55,10 +54,9 @@ happened; these entries are the toolkit's own timeline.
 All four entries are graded. Keep every heading below, and fill each
 one in the week it belongs to.
 
-**Unit 5: [one line on the tool work]**
+**Unit 5: built issue-scout (3 Python search queries + ranking filters) and patched its rubric after the first wild scan**
 
-[2-4 sentences: what you built (the scout, your strategy), what broke
-or fell short, what changed because of it.]
+I turned my Unit 1 issue-select skill into issue-scout. It runs three Python `good first issue`/`help wanted` searches from my fit profile, drops results that are assigned, stale (over 60 days), over 10 comments, or tagged frontend/question, ranks by fewest comments then newest, and grades the top 5 with my rubric. The first scan (2026-11-10) accepted all 5, but two came from a workshop exercise repo created that day with 0 stars, and Pycord passed even though its policy says AI use by new contributors "will likely result in the direct closure" of the PR. I added a required `established-repo` check, tightened `ai-policy` to fail "discouraged for newcomers" policies, and dropped `workshop`/`exercise` labels in the strategy. The Unit 1 eval still scored 20/20 after the changes. Ranking still favors brand-new tiny repos, because search results carry no star count; I logged that in scan-notes.md rather than pretend it's fixed.
 
 **Unit 6: [one line on the tool work]**
 
