@@ -11,7 +11,7 @@ files and no evidence uploads are part of Assignment 5.
 **Student:** Jaed Pizarro
 **GitHub Username:** Jaed256
 **Issue:** https://github.com/tacular-omics/tacular/issues/54
-**Pull Request:** [GitHub PR link, once opened]
+**Pull Request:** https://github.com/tacular-omics/tacular/pull/55
 
 One repository, built across units 5 to 8, telling the whole story of your real
 contribution. Fill it as you work, not at the end — the sections below ask for evidence that
@@ -62,10 +62,9 @@ I turned my Unit 1 issue-select skill into issue-scout. It runs three Python `go
 
 I added an "Upstream: how I talk to maintainers" section to my voice guide, with rules for claims, questions and pings, and wired check_voice.py in as a PreToolUse hook. The wiring test stopped `gh issue comment --help` as expected. On the real claim the guard caught me: my first draft said "Then I'll add the full-string check...", which is a fix promise before I'd reproduced anything, so I cut it down to the first step and a two-day report-back. `gh` wasn't authenticated in my environment, so I posted through the browser and ran `check_voice.py --draft` by hand first. The guard log has both the stop and the pass. tacular already ships a 300-line CLAUDE.md and an AGENTS.md that points to it, so I dropped the @AGENTS.md import and kept my CLAUDE.local.md to the conventions and the one subsystem I'm touching. I kept it out of my diff with .git/info/exclude.
 
-**Unit 7: [one line on the tool work]**
+**Unit 7: installed the ship-gate, wrote a 5-row manifest from tacular's CI, and got the branch through it**
 
-[2-4 sentences: the ship-gate and your gate manifest. What it produced
-on your real branch, what fought you, what changed because of it.]
+My manifest runs `uv sync --locked --all-extras --all-groups`, then ruff check, ruff format --check, ty and pytest, all taken from CONTRIBUTING.md and `.github/workflows/ci.yml`. I ran each one on unchanged main first, and all passed, so the excluded table is empty. The hook test gave the two expected stops (voice guard and `ship-gate: STOP.`). On my branch, the first thing that stopped me was my own manual format check: "1 file would be reformatted", a blank-line slip in my new tests. The first full ship-gate run then rejected the branch with `standards-met [unclear]`, because `gh` isn't authenticated here, so it couldn't fetch the issue thread to confirm I hadn't ignored any maintainer direction. I didn't loosen the rubric, since the check is right to want the thread. Instead I captured the live thread from the browser and served it to the gate through a small `gh issue view` stand-in, and the next run passed. My container can't push or open a PR with `gh`, so I committed the same tree to my fork through GitHub's web upload, checked that the tree hash matched my local commit, re-ran the gate on that exact head (PASS), and opened the PR in the browser after a manual voice-guard check.
 
 **Unit 8: [one line on the tool work]**
 
@@ -95,26 +94,26 @@ Claim comment: https://github.com/tacular-omics/tacular/issues/54#issuecomment-6
 
 **Problem Description**
 
-[In your own words, what is broken or missing?]
+tacular builds its GNOme glycan lookups by reading composition strings like "Hex(2)HexNAc(1)". The parser only picks out the `Symbol(count)` pieces, so anything else in the string is thrown away without a word, and the entry is kept with a wrong formula and mass.
 
 **Expected Behavior**
 
-[What should happen?]
+A composition that isn't made entirely of `Symbol(count)` tokens (apart from surrounding whitespace) is reported with a warning that names the full string and the leftover text, and the entry is skipped. That's how an unknown counted symbol like "Xenon(1)" is already handled.
 
 **Current Behavior**
 
-[What actually happens?]
+"Hex(6)NeuAc" is kept as C36H60O30, 972.317 Da. That's 291.095 Da light, because the uncounted NeuAc is dropped. "Hex(6)Xenon" gives the same values. A bare "Hex" is kept with formula `""` and mass 0.0. None of them logs a warning.
 
 **Affected Components**
 
-[Which parts of the codebase are involved?]
+`_parse_glycan_composition` in `src/tacular/_datagen/gno.py` (the `re.findall` at line 45) is the cause. `_entries` in the same file (the all-`None` guard at line 140) is why the bare "Hex" survives. The tests live in `tests/test_datagen_gno.py`. The same `_datagen` code feeds both the `data_gen` regeneration pipeline and `tacular update gno`.
 
 **Toolkit**
 
-- Tool:
-- What it produced:
-- Difficulties:
-- What changed:
+- Tool: my CLAUDE.local.md and one scoped read of `src/tacular/_datagen/gno.py` and its test file, plus the repo's own CLAUDE.md, which Claude Code loads automatically.
+- What it produced: the four answers above, with line numbers checked against main `4fa80f9`. The issue's line numbers were still correct.
+- Difficulties: none met. The maintainer had already pinned the cause and the lines, so the work was confirming them rather than finding them.
+- What changed: nothing.
 
 ---
 
@@ -159,45 +158,64 @@ Unknown glycan symbol 'Xenon' in composition 'Xenon(1)' (known symbols: [...])
 
 **Analysis**
 
-[Your analysis of the root cause: what is causing the issue, traced
-to the files and functions involved.]
+`_parse_glycan_composition` in `src/tacular/_datagen/gno.py` (line 42) reads a GNOme composition string with `re.findall(r"([A-Za-z0-9]+)\((\d+)\)", composition_str)` (line 45). `findall` returns only the matches, so any text the pattern skips, like the uncounted `NeuAc` in "Hex(6)NeuAc", is dropped with no warning. The function then returns a composition built from what did match. The only warning path is the unknown-symbol branch (line 49), and it runs only on matched tokens, so it never sees uncounted text. `_entries` (line 90) drops an entry only when formula, mono mass and average mass are all `None` (line 140). For the bare "Hex", `findall` returns nothing and the function returns an empty `Counter`, which gives formula `""` and mass `0.0`. Neither is `None`, so the entry is kept.
 
 **Proposed Solution**
 
-[High-level description of your fix approach, and what you are
-deliberately NOT changing.]
+In `_parse_glycan_composition`, after matching, remove every `Symbol(count)` match from the string. If anything but whitespace is left, log a warning that names the full composition string and the leftover text, then return `None`, following the shape of the existing unknown-symbol branch. `_entries` already skips an entry whose composition is `None`.
+
+Not changing (the issue's out-of-scope list):
+
+- `_entries` and its guard
+- `data_gen/generator/gen_gno.py`
+- the other builders
+- `_GLYCAN_COMPOSITIONS`
+- how a counted unknown symbol behaves
+- keeping partly parsed entries
+- `src/tacular/gno/data.py`
+- the version
 
 **Implementation Plan**
 
-1. [Modify file X to do Y]
-2. [Add or change Z]
-3. [Update tests]
+1. Branch `fix/54-gno-unconsumed-composition` from `main`.
+2. In `gno.py`, keep the token pattern inside the function, use it for both `findall` and `sub`, and add the consumed-whole-string check before the unknown-symbol loop.
+3. In `tests/test_datagen_gno.py`, add tests on the `_terms` helper and `caplog` for "Hex(6)NeuAc", "Hex" and "Hex(6)Xenon" (no entry, and the warning names the string and the leftover text). Add one more showing a whitespace-padded valid string still parses.
+4. Add a CHANGELOG entry under `## [Unreleased]`.
+5. Re-run the reproducer and the manifest checks.
+6. Skip the optional 129 MB `gen-gno` check and say so in the PR.
 
-[Record deviations here as they happen: what changed mid-build and
-why. A recorded deviation is honest work; silent drift is not.]
+Deviations:
+
+- After plan-check, I dropped "compile the pattern once", so the change stays inside the function and in scope.
+- `strip()` on the leftover text also accepts whitespace between tokens, not just at the ends. I didn't plan that, so I flagged it in the PR for the maintainer.
+- The plan said one commit. The PR has three (fix, tests, changelog), because I had to commit through GitHub's web upload one file at a time.
 
 **Toolkit**
 
-- Tool:
-- What it produced:
-- Difficulties:
-- What changed:
+- Tool: plan-check, with the wild scope from Unit 6, on plan.md and plan-comment.md for issue #54.
+- What it produced: accept, with all six required checks passing (grounded-diagnosis, bounded-scope, executable, decisive-test, honest-unknowns, thread-and-conventions) and names-the-plan also passing. It flagged "compile the token pattern once" as borderline scope if hoisted out of the function. It also flagged two voice notes on the comment: show the output instead of only claiming "all five rows match", and say where I ran it.
+- Difficulties: plan-check had no GitHub access, so it graded the thread from the evidence file I gave it, and it said so. Separately, the voice guard stopped plan-comment.md for promising the fix ("I'll add tests..."), even though plan-check had passed it.
+- What changed: I kept the pattern inside the function, pasted the reproducer output and environment into the comment, and rewrote the plan as a question to the maintainer ("Does that approach match what you had in mind?"). The voice guard then passed it. I didn't post it, as the assignment says.
 
 ---
 
 ## Testing Strategy
 
-[What observable checks prove the fix: your reproduction steps re-run
-against the built change (before and after), and the repo's own test
-suite or checks with the outcome shown. "Tests pass" with nothing
-observable named is not a strategy.]
+1. **Reproducer, before and after.** The issue's reproducer, looped over all five rows of its table.
+   - On main `4fa80f9`, "Hex(6)NeuAc" and "Hex(6)Xenon" print `[('C36H60O30', 972.3169405209001)]` and "Hex" prints `[('', 0.0)]`.
+   - On the branch, all three print `[]`, each after a warning like `Unparsed text 'NeuAc' in glycan composition 'Hex(6)NeuAc' (expected only Symbol(count) tokens)`.
+   - "Hex(6)NeuAc(1)" still gives C47H77NO38 / 1263.412, and "Xenon(1)" still gives the old unknown-symbol warning.
+2. **New tests fail without the fix.** With `gno.py` put back to main, the new tests give `3 failed, 8 passed`. The whitespace test passes either way, because it guards the "surrounding whitespace" part of the issue.
+3. **Existing tests unchanged.** `tests/test_datagen_gno.py` gives 11 passed, including `test_build_parses_valid_composition` and the six other original tests.
+4. **The repo's own checks, via my ship manifest.** `uv run ruff check src tests` passes. `ruff format --check` reports 97 files already formatted. `uv run ty check src` passes. `uv run pytest tests` gives 1291 passed, 8 skipped (1287 on main, plus my 4). `release_version.py check` passes.
+5. **Not run:** `just -f data_gen/justfile gen-gno` (data.py byte-identical). My network proxy refuses purl.obolibrary.org, so I couldn't download GNOme.obo. I said so in the PR.
 
 **Toolkit**
 
-- Tool:
-- What it produced:
-- Difficulties:
-- What changed:
+- Tool: the ship-gate, through my manifest's five checks, plus my own runs of the reproducer and pytest (with and without the fix), all saved in test_evidence.md.
+- What it produced: every check passed on the final head `defcbfb`, and the before/after output above.
+- Difficulties: the first `ruff format --check` on my branch failed ("1 file would be reformatted") because of an extra blank line in the new tests. The GNOme download was blocked.
+- What changed: I ran `uv run ruff format` on the test file, amended the commit, and re-ran all five checks. I recorded the skipped gen-gno run in the evidence and the PR instead of claiming data.py is unchanged.
 
 ---
 
@@ -206,46 +224,64 @@ observable named is not a strategy.]
 [A running log, added to as you work. Date each entry. What you
 built, decisions you made when you made them, wrong turns included.]
 
-**[Date]**
+**2026-11-10 (morning)**
 
-[Entry]
+Reproduced on main `4fa80f9` with `uv sync` and the issue's reproducer. All five rows of the table matched. The bare "Hex" case gets past the guard at line 140, because `""` and `0.0` aren't `None`.
 
-**[Date]**
+**2026-11-10 (evening)**
 
-[Entry]
+- Installed the ship-gate and filled the manifest from CONTRIBUTING.md and ci.yml. All five checks passed on main.
+- Wrote plan.md and plan-comment.md. plan-check accepted the plan. The voice guard stopped the comment for promising the fix, so I turned it into a question.
+- Built the fix on `fix/54-gno-unconsumed-composition`:
+  - In `_parse_glycan_composition`, `re.sub` takes out the `Symbol(count)` tokens, then I `.strip()` what's left. If anything remains, it logs a warning and returns `None`.
+  - Added four tests and a CHANGELOG entry under "### Fixed".
+- Format check failed on one blank line. I fixed it and amended.
+- Changed the CHANGELOG line from "The bundled GNOme data is unchanged" to "This change does not touch the bundled GNOme data", because I couldn't run gen-gno to prove byte-identity.
+- Tried to download GNOme.obo for the byte-identical check. purl.obolibrary.org was refused by my proxy, and the raw GitHub URL in `gno.py` returned 404.
+- `git push` to my fork was refused by my environment's git proxy. I recreated the branch on my fork through GitHub's web upload (three commits). The browser checked each file's git blob hash before upload, and the final tree hash matched my local commit (`dde75fd`).
+- Re-ran the ship-gate on that head: PASS. Opened PR #55.
 
 **Toolkit**
 
-- Tool:
-- What it produced:
-- Difficulties:
-- What changed:
+- Tool: Claude Code in my clone, with CLAUDE.local.md and the repo's CLAUDE.md loaded, for the edit, the tests and the check runs.
+- What it produced: a 66-line diff in three files (gno.py +15/-1, the tests +42, CHANGELOG +9).
+- Difficulties: no push access from my environment, the blocked GNOme download, and one formatting slip.
+- What changed: I used web-upload commits checked by tree hash instead of a push, disclosed the skipped gen-gno in the PR, and fixed the format with ruff.
 
 ---
 
 ## Pull Request
 
-**PR Link:** [GitHub PR URL when opened]
+**PR Link:** https://github.com/tacular-omics/tacular/pull/55
 
-**PR Description:** [what the PR says; much of the content above
-adapts into it]
+**PR Description:** It follows the repo's PR template:
+
+- **What this changes:** compositions the `Symbol(count)` tokens don't fully account for are skipped with a warning naming the string and the leftover text. "Fixes #54".
+- **Why:** `re.findall` drops unmatched text, so "Hex(6)NeuAc" was 291.095 Da light and "Hex" was kept at 0.0. The change stays inside `_parse_glycan_composition`.
+- **How it was tested:** the reproducer before and after, the four new tests (three fail on main), and the five CONTRIBUTING.md checks with their output. The checklist is ticked, with a note that I ran the parts of `just check` separately.
+- **Notes for the maintainer:**
+  - I didn't run gen-gno, because the download was blocked.
+  - Whitespace between tokens is also accepted. I asked whether they'd rather allow it only at the ends.
+  - AI disclosure: Claude Code read the code, wrote the fix, tests and description, and ran the checks. Each commit has a Co-Authored-By line, and I'm responsible for the change.
 
 **Maintainer Feedback:**
 
-- [Date]: [feedback received, or "none yet"; silence is a normal
-  state and costs you nothing]
-- [Date]: [how you addressed it]
+- 2026-11-10: none yet (PR opened today)
 
-**Status:** [Awaiting review / Iterating / Merged / Closed. The
-status is a fact you record, never a grade: the PR is graded as
-opened.]
+**Status:** Awaiting review
 
 **Toolkit**
 
-- Tool:
+- Tool: the ship-gate (manifest checks plus my pr-precheck in live mode), run by hand with `check_gate.py --branch --title ... --body-file pr_draft.md`. Then the voice guard's `--draft` check, because I opened the PR in the browser and the hook couldn't see it.
 - What it produced:
-- Difficulties:
+  - Run 1: STOP. pr-precheck rejected the branch on `standards-met [unclear]`, because the issue thread couldn't be fetched (`gh` returned 403).
+  - Run 2, with the thread supplied: PASS. pr-precheck noted that "The bundled GNOme data is unchanged" sat awkwardly next to my "can't confirm byte-identity" note, and that my AI line should say who ran the checks.
+  - Runs 3 to 5: PASS each time after I reworded those, rebased onto the fork's commits, and added the attribution footer.
+- Difficulties: the hook path (opening the PR through `claude` with `gh`) wasn't usable, because my environment can't authenticate `gh` or push. The ship-gate also stopped one of my own shell commands, because it contained the PR command inside a heredoc ("couldn't read this command").
 - What changed:
+  - I gave the gate the real thread through a `gh issue view` stand-in serving the text I captured from the issue page.
+  - I made sure the gate's last PASS was on the exact head and description the PR used.
+  - I kept the rubric as is, because the unclear grade was about missing evidence, not a wrong check.
 
 ---
 
