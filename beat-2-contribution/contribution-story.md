@@ -66,10 +66,9 @@ I added an "Upstream: how I talk to maintainers" section to my voice guide, with
 
 My manifest runs `uv sync --locked --all-extras --all-groups`, then ruff check, ruff format --check, ty and pytest, all taken from CONTRIBUTING.md and `.github/workflows/ci.yml`. I ran each one on unchanged main first, and all passed, so the excluded table is empty. The hook test gave the two expected stops (voice guard and `ship-gate: STOP.`). On my branch, the first thing that stopped me was my own manual format check: "1 file would be reformatted", a blank-line slip in my new tests. The first full ship-gate run then rejected the branch with `standards-met [unclear]`, because `gh` isn't authenticated here, so it couldn't fetch the issue thread to confirm I hadn't ignored any maintainer direction. I didn't loosen the rubric, since the check is right to want the thread. Instead I captured the live thread from the browser and served it to the gate through a small `gh issue view` stand-in, and the next run passed. My container can't push or open a PR with `gh`, so I committed the same tree to my fork through GitHub's web upload, checked that the tree hash matched my local commit, re-ran the gate on that exact head (PASS), and opened the PR in the browser after a manual voice-guard check.
 
-**Unit 8: [one line on the tool work]**
+**Unit 8: installed the PR monitor, wrote a four-rule playbook from tacular's real merge history, and followed its first draft (wait)**
 
-[2-4 sentences: the PR-monitor and your playbook. What it read, what it
-drafted, what you did with the draft.]
+The monitor read PR #55: 11 CI checks passing, mergeable and clean, no comments or reviews, about 10 minutes old. It drafted a wait note instead of a nudge, because my playbook's first-response threshold is 5 quiet days (met on 2026-11-15). I posted nothing, which is what the draft said to do. Writing the staleness section was harder than I expected. The template asks for five merged PRs from outside contributors, and tacular has exactly one (#51, merged in 20.6 hours), so I based the number on that PR plus the maintainer's own merge speed and wrote the thin sample into the playbook rather than pretend I had five. What fought me was `gh` again: the monitor reads only through `gh`, and mine can't reach GitHub. I pulled the PR's checks, reviews, comments and commits from GitHub's REST API in the browser into `gh pr view --json` format, served them through a read-only stand-in, and re-ran `--state` to confirm it saw the same 11 checks the PR page shows.
 
 ---
 
@@ -221,9 +220,6 @@ Deviations:
 
 ## Implementation Notes
 
-[A running log, added to as you work. Date each entry. What you
-built, decisions you made when you made them, wrong turns included.]
-
 **2026-11-10 (morning)**
 
 Reproduced on main `4fa80f9` with `uv sync` and the issue's reproducer. All five rows of the table matched. The bare "Hex" case gets past the guard at line 140, because `""` and `0.0` aren't `None`.
@@ -240,6 +236,13 @@ Reproduced on main `4fa80f9` with `uv sync` and the issue's reproducer. All five
 - Tried to download GNOme.obo for the byte-identical check. purl.obolibrary.org was refused by my proxy, and the raw GitHub URL in `gno.py` returned 404.
 - `git push` to my fork was refused by my environment's git proxy. I recreated the branch on my fork through GitHub's web upload (three commits). The browser checked each file's git blob hash before upload, and the final tree hash matched my local commit (`dde75fd`).
 - Re-ran the ship-gate on that head: PASS. Opened PR #55.
+
+**2026-11-10 (night, unit 8)**
+
+- Installed the PR monitor.
+- The PR's CI ran on its own: all 11 checks green (lint, docs, coverage, pre-commit, package, lowest-direct, and tests on Ubuntu 3.12 to 3.14, Windows and macOS).
+- `gh` still can't reach GitHub from my environment, so I read the PR through GitHub's REST API in the browser and gave the monitor that state through a read-only `gh` stand-in.
+- Wrote my playbook. The staleness numbers come from tacular's merged PRs. The monitor's first full run drafted a wait note, so I posted nothing.
 
 **Toolkit**
 
@@ -289,25 +292,34 @@ Reproduced on main `4fa80f9` with `uv sync` and the issue's reproducer. All five
 
 **Technical Skills Gained**
 
-[What you learned technically, named concretely.]
+- Reading a parser bug as a "what does `re.findall` not tell you" problem. Checking that the matches account for the whole input, by removing the tokens and inspecting what's left, is a reusable pattern for any token-based parser.
+- How tacular keeps one source of truth: `_datagen` feeds both the dev regeneration pipeline and the runtime `tacular update` command, so a parser fix belongs there, and the bundled `data.py` must not move in a parsing PR.
+- Writing regression tests in a project's existing style (the `_terms` helper plus `caplog`), and proving they fail without the fix by stashing just the source file.
+- The project's real check suite: uv-locked environments, ruff check and format, ty, pytest on several Pythons, and how a formatter check catches a single blank line.
+- Git plumbing I hadn't needed before: comparing blob and tree hashes to prove a branch made in GitHub's web UI matched my local commit byte for byte.
 
 **Challenges Overcome**
 
-[What was hard and how you solved it; point at the real events, the
-Toolkit blocks above are full of them.]
+- **Finding a real, unclaimed issue.** My first pick, pants #15376, was already claimed in July and didn't reproduce on Pants 2.30. I re-ran the scout with stricter filters and reproduced the candidates before claiming one (Why I Chose This Issue).
+- **My own voice guard stopped me twice:** once on the claim and once on the plan comment, both for promising a fix before I'd shown anything. Both times I rewrote toward "here's what I checked" or a question (Unit 6 entry, Solution Approach Toolkit).
+- **The ship-gate rejected my branch** because it couldn't read the issue thread. I gave it the real thread instead of weakening the rubric (Pull Request Toolkit).
+- **No push and no authenticated `gh`.** I recreated the branch through the web UI and verified it by tree hash. Then I re-ran the gate on that exact head before opening the PR (Implementation Notes).
+- **The GNOme download was blocked**, so I couldn't prove `data.py` stays byte-identical. I said that plainly in the CHANGELOG wording, the test evidence and the PR, instead of claiming it (Testing Strategy).
 
 **What I'd Do Differently Next Time**
 
-[Reflection on your process.]
+- Reproduce before claiming, every time. The scout's rubric can't see whether an old bug still exists, and pants #15376 cost me a pick.
+- Get an environment where `gh` is logged in and `git push` works before the build week. Most of my workarounds (the thread stand-in, the web-upload commits) came from not having that, and they made the hook path unusable.
+- Make one commit per logical change locally and push it as is, instead of rebuilding it file by file. That would have kept the PR to the single commit my plan described.
+- Ask the maintainer the open design question (whitespace between tokens) in the plan comment before building, rather than in the PR notes.
 
 ---
 
 ## Resources Used
 
-[What actually helped, not a reading list. List things this story
-already shows you using: the doc you followed to set the environment
-up, the thread that explained the bug, the person who answered you.
-One real entry beats ten plausible ones.]
-
-- [Link to documentation that helped]
-- [Discussion, issue, or post that helped]
+- [tacular #54](https://github.com/tacular-omics/tacular/issues/54): the maintainer's write-up had the cause, line numbers, acceptance tests and scope, and it shaped the whole fix.
+- [tacular CONTRIBUTING.md](https://github.com/tacular-omics/tacular/blob/main/CONTRIBUTING.md): the setup (`uv sync`), the check commands for my manifest, and the AI policy.
+- [tacular CLAUDE.md](https://github.com/tacular-omics/tacular/blob/main/CLAUDE.md): the "Regenerating data" section explained why the fix belongs in `_datagen` and that `data.py` must not change.
+- [tacular CI workflow](https://github.com/tacular-omics/tacular/blob/main/.github/workflows/ci.yml): the exact commands CI runs, copied into my ship manifest.
+- [tacular PR #51](https://github.com/tacular-omics/tacular/pull/51): the one merged outside-contributor PR, which set my playbook's staleness threshold.
+- [Python `re` docs (`findall`, `sub`)](https://docs.python.org/3/library/re.html): they confirmed that `findall` silently skips non-matching text.
