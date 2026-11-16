@@ -1,18 +1,11 @@
-<!--
-SKELETON. Write the post yourself (Unit 9 rule), then delete this whole comment so the file is only the post.
+This is my first merged open source contribution! I fixed a bug in tacular, an open source Python library, that would have quietly produced wrong masses the next time someone refreshed its glycan data.
 
-Rules from the rubric: plain text (no headings, tables or code blocks); 60 to 250 words, where a link or a hashtag counts as one word; first person; complete sentences; fair to the maintainer, the project and the course.
-- Open with two sentences that say what you did (LinkedIn hides the rest behind "...more").
-- Say how it ended and why it matters: merged, and what it taught you about how you work.
-- Use plain words: name what you fixed. Leave out course terms like eval harness and ship-gate, or explain them.
-- End with one link: https://github.com/tacular-omics/tacular/pull/55 (hashtags can follow it).
-- Only claim what your write-up backs up. It's merged, so "fixed" is accurate.
+It wasn't actively breaking workflows yet, but it would have corrupted entries silently with no warning. Now those cases fail with a clear, traceable warning instead.
 
-Facts you can use:
-- Project: tacular, an open source Python library of lookups for mass-spectrometry proteomics (glycans, modifications, elements).
-- Bug: a parser silently dropped part of a glycan description, so "Hex(6)NeuAc" came out about 291 Da too light and a bare "Hex" came out with zero mass, with no warning.
-- Fix: the parser now refuses input it can't fully read and logs a warning naming it. 4 new tests, 3 of which fail without the fix.
-- Opened 2026-11-10, merged 2026-11-11, about 3.5 hours later. The maintainer said all three acceptance items were met.
-- How: you built AI tools to find an issue, check your drafts before posting, and run the project's checks before opening the PR. You used Claude Code and disclosed it.
-- First merged open source contribution (say so only if it's true).
--->
+Before claiming the issue, I dropped my first pick because someone else had claimed it back in July and the bug didn't even reproduce. I also jumped the gun: my first draft promised the exact fix before I had even reproduced the issue, so I rewrote it to keep only the first step.
+
+The maintainer merged it about 3.5 hours after I opened the pull request. It felt awesome, and it validated my whole workflow. It tells me that my preference for concise, straightforward code works perfectly for open source: maintainers just want clean code that follows their standards from the jump.
+
+https://github.com/tacular-omics/tacular/pull/55
+
+#OpenSource #SoftwareEngineering
